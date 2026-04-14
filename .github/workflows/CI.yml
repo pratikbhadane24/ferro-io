@@ -28,7 +28,7 @@ jobs:
       - name: Install deps
         run: uv sync --extra dev
       - name: Build and install
-        run: uv run maturin develop --release
+        run: uv run maturin develop
       - name: Run tests
         run: uv run pytest tests/ -v --ignore=tests/test_heavyweights.py
 
@@ -59,7 +59,7 @@ jobs:
       - name: Install deps
         run: uv sync --extra integration
       - name: Build and install
-        run: uv run maturin develop --release
+        run: uv run maturin develop
       - name: Run heavyweight integration tests
         env:
           FERRO_IO_INTEGRATION: "1"
@@ -68,6 +68,7 @@ jobs:
 
   build-wheels:
     name: Build wheels (${{ matrix.platform.os }} / ${{ matrix.platform.target }})
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.platform.os }}
     strategy:
       fail-fast: false
@@ -80,6 +81,7 @@ jobs:
           - { os: windows-latest, target: x64,     manylinux: auto }
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
