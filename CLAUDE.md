@@ -140,3 +140,35 @@ matrix they sit indistinguishably at the floor. uvloop's workload C uses
 remains GIL-bound like stdlib because libuv cannot release the GIL for Python
 bytecode. ferro_io's `map_blocking` routes through `spawn_blocking`, which
 releases the GIL and is the only reason the 900×+ gap exists.
+
+## Primitive benchmarks (`benchmarks/PRIMITIVES.md`)
+
+Per-primitive micro-workloads exist at `benchmarks/bench_primitives.py` —
+subprocess-isolated against `uvloop.install()` / `ferro_io.install()`. The
+task-spawn workloads used to be at stdlib speed (ferro_io's `create_task` /
+`TaskGroup` were pass-throughs to stdlib). They are now the fastest column:
+
+| Primitive | stdlib | uvloop | ferro_io | ferro_io vs stdlib | ferro_io vs uvloop |
+|---|---:|---:|---:|---:|---:|
+| `create_task` spawn (10k) | 20.93 ms | 12.95 ms | **10.96 ms** | **1.91×** | **1.18×** |
+| `TaskGroup` spawn (10k)   | 18.91 ms |  9.27 ms | **5.80 ms**  | **3.26×** | **1.60×** |
+
+The wins come from two composed tricks, both in pure Python — no Rust changes:
+
+1. **Eager task factory.** `ferro_io.run()` / `Runner.run()` wrap the user
+   coroutine to set `asyncio.eager_task_factory` on the running loop before
+   any user code runs. Coroutines that have no real await points complete
+   synchronously inside `loop.create_task` and never touch the event loop at
+   all — skipping the `call_soon` → `_run_once` → `Context.run` plumbing that
+   cProfile shows is 80%+ of stdlib's task-spawn cost.
+2. **`FastTaskGroup`** (`python/ferro_io/__init__.py`) subclasses
+   `asyncio.TaskGroup` and inlines the fast path for eagerly-completed,
+   non-exceptional tasks: no `_tasks.add`, no `add_done_callback`, no
+   `future_add_to_awaited_by`. For any task that isn't already done, or that
+   raised/was cancelled, it falls back to the exact stdlib bookkeeping so
+   exception group propagation and mid-flight cancellation are unchanged.
+   `ferro_io.TaskGroup` is wired to `FastTaskGroup`.
+
+Queue / Lock / Event / Semaphore remain pass-throughs — profiling showed
+zero gap between stdlib and uvloop on those primitives at benchmark scale,
+so porting them is not justified by the data.

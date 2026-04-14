@@ -22,7 +22,7 @@ def test_symbol_matches_stdlib_for_passthrough(name):
     overridden = {
         # Functions and classes we replace with ferro_io versions.
         "run", "sleep", "Runner", "get_event_loop", "new_event_loop",
-        "run_in_executor",
+        "run_in_executor", "TaskGroup",
         # Names that don't belong to plain pass-through (ferro_io adds them).
         "AsyncRuntime", "install", "uninstall",
     }

@@ -78,9 +78,46 @@ __all__ = [
     "Semaphore",
     "BoundedSemaphore",
     "Condition",
+    "TaskGroup",
     "TimeoutError",
     "CancelledError",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Fast task-spawn path
+# ---------------------------------------------------------------------------
+# Reaches into CPython-private TaskGroup internals (_entered, _exiting,
+# _tasks, _aborting, _parent_task, _on_task_done) and asyncio.futures
+# .future_add_to_awaited_by. Pinned to CPython 3.11–3.13; re-audit on bump.
+
+from asyncio import futures as _asyncio_futures
+
+
+class _FastTaskGroup(_asyncio.TaskGroup):
+    def create_task(self, coro, **kwargs):
+        if not self._entered:
+            coro.close()
+            raise RuntimeError(f"TaskGroup {self!r} has not been entered")
+        if self._exiting and not self._tasks:
+            coro.close()
+            raise RuntimeError(f"TaskGroup {self!r} is finished")
+        if self._aborting:
+            coro.close()
+            raise RuntimeError(f"TaskGroup {self!r} is shutting down")
+
+        task = self._loop.create_task(coro, **kwargs)
+
+        if task.done() and not task.cancelled() and task.exception() is None:
+            return task
+
+        _asyncio_futures.future_add_to_awaited_by(task, self._parent_task)
+        self._tasks.add(task)
+        task.add_done_callback(self._on_task_done)
+        return task
+
+
+TaskGroup = _FastTaskGroup
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +174,13 @@ class _SigintGuard:
 # run() / Runner
 # ---------------------------------------------------------------------------
 
+async def _with_eager_factory(coro):
+    # Must be a coroutine: set_task_factory requires a running loop, so it
+    # can't be called from run()'s synchronous entry point.
+    _asyncio.get_running_loop().set_task_factory(_asyncio.eager_task_factory)
+    return await coro
+
+
 def run(coro, *, debug: bool | None = None, loop_factory=None) -> Any:
     """Drive `coro` to completion on the ferro_io Tokio runtime.
 
@@ -153,7 +197,7 @@ def run(coro, *, debug: bool | None = None, loop_factory=None) -> Any:
     if not _asyncio.iscoroutine(coro):
         raise ValueError(f"a coroutine was expected, got {coro!r}")
     with _SigintGuard():
-        return _runtime().run_coroutine(coro)
+        return _runtime().run_coroutine(_with_eager_factory(coro))
 
 
 class Runner:
@@ -191,9 +235,10 @@ class Runner:
             raise RuntimeError("Runner is closed")
         if not _asyncio.iscoroutine(coro):
             raise ValueError(f"a coroutine was expected, got {coro!r}")
+        wrapped = _with_eager_factory(coro)
         if context is not None:
-            return context.run(_runtime().run_coroutine, coro)
-        return _runtime().run_coroutine(coro)
+            return context.run(_runtime().run_coroutine, wrapped)
+        return _runtime().run_coroutine(wrapped)
 
     def close(self) -> None:
         if self._closed:
