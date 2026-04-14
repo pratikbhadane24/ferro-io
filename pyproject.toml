@@ -18,7 +18,10 @@ classifiers = [
 dev = [
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "maturin>=1.7,<2",
+    "ruff",
+    "mypy",
 ]
 integration = [
     "pytest",
