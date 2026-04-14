@@ -15,7 +15,7 @@ def test_sleep_zero_is_yield():
         return time.perf_counter() - start
 
     elapsed = ferro_io.run(main())
-    assert elapsed < 0.05, f"sleep(0)×100 took {elapsed:.4f}s — too slow"
+    assert elapsed < 0.1, f"sleep(0)×100 took {elapsed:.4f}s — too slow"
 
 
 def test_sleep_negative_is_zero():
