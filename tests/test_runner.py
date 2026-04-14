@@ -1,5 +1,4 @@
 """Phase 8a tests: Runner class and run() signature."""
-import asyncio
 import pytest
 
 import ferro_io

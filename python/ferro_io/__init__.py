@@ -91,36 +91,37 @@ __all__ = [
 # _tasks, _aborting, _parent_task, _on_task_done) and asyncio.futures
 # .future_add_to_awaited_by. The latter is Python 3.13+; guarded below.
 
-from asyncio import futures as _asyncio_futures
+from asyncio import futures as _asyncio_futures  # noqa: E402
 
 _future_add_to_awaited_by = getattr(_asyncio_futures, "future_add_to_awaited_by", None)
 
 
-class _FastTaskGroup(_asyncio.TaskGroup):
-    def create_task(self, coro, **kwargs):
-        if not self._entered:
-            coro.close()
-            raise RuntimeError(f"TaskGroup {self!r} has not been entered")
-        if self._exiting and not self._tasks:
-            coro.close()
-            raise RuntimeError(f"TaskGroup {self!r} is finished")
-        if self._aborting:
-            coro.close()
-            raise RuntimeError(f"TaskGroup {self!r} is shutting down")
+# _FastTaskGroup requires asyncio.TaskGroup which was added in Python 3.11.
+if hasattr(_asyncio, "TaskGroup"):
+    class _FastTaskGroup(_asyncio.TaskGroup):
+        def create_task(self, coro, **kwargs):
+            if not self._entered:
+                coro.close()
+                raise RuntimeError(f"TaskGroup {self!r} has not been entered")
+            if self._exiting and not self._tasks:
+                coro.close()
+                raise RuntimeError(f"TaskGroup {self!r} is finished")
+            if self._aborting:
+                coro.close()
+                raise RuntimeError(f"TaskGroup {self!r} is shutting down")
 
-        task = self._loop.create_task(coro, **kwargs)
+            task = self._loop.create_task(coro, **kwargs)
 
-        if task.done() and not task.cancelled() and task.exception() is None:
+            if task.done() and not task.cancelled() and task.exception() is None:
+                return task
+
+            if _future_add_to_awaited_by is not None:
+                _future_add_to_awaited_by(task, self._parent_task)
+            self._tasks.add(task)
+            task.add_done_callback(self._on_task_done)
             return task
 
-        if _future_add_to_awaited_by is not None:
-            _future_add_to_awaited_by(task, self._parent_task)
-        self._tasks.add(task)
-        task.add_done_callback(self._on_task_done)
-        return task
-
-
-TaskGroup = _FastTaskGroup
+    TaskGroup = _FastTaskGroup
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +153,7 @@ class _SigintGuard:
     """
 
     def __init__(self) -> None:
-        self._prev = None
+        self._prev: Any = None
         self._installed = False
 
     def __enter__(self) -> _SigintGuard:

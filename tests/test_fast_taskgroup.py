@@ -7,11 +7,17 @@ cancellation, and mixed-completion workloads identically to stdlib.
 from __future__ import annotations
 
 import asyncio
+import sys
 
 import pytest
 
 import ferro_io
 from ferro_io import TaskGroup
+
+pytestmark = pytest.mark.skipif(
+    sys.version_info < (3, 11),
+    reason="asyncio.TaskGroup requires Python 3.11+",
+)
 
 
 # ---------- happy path ----------
@@ -60,7 +66,7 @@ def test_eager_exception_propagates_as_exception_group():
             tg.create_task(boom())
             tg.create_task(boom())
 
-    with pytest.raises(BaseExceptionGroup) as ei:
+    with pytest.raises(BaseExceptionGroup) as ei:  # noqa: F821
         ferro_io.run(main())
     assert all(isinstance(e, ValueError) for e in ei.value.exceptions)
     assert len(ei.value.exceptions) == 2
@@ -86,7 +92,7 @@ def test_eager_exception_cancels_siblings():
             tg.create_task(slow())
             tg.create_task(boom())
 
-    with pytest.raises(BaseExceptionGroup) as ei:
+    with pytest.raises(BaseExceptionGroup) as ei:  # noqa: F821
         ferro_io.run(main())
     # boom raises, sibling slow tasks must have been cancelled
     assert any(isinstance(e, RuntimeError) for e in ei.value.exceptions)
@@ -109,7 +115,7 @@ def test_mid_flight_exception_aborts_group():
             tg.create_task(slow())
             tg.create_task(boom())
 
-    with pytest.raises(BaseExceptionGroup) as ei:
+    with pytest.raises(BaseExceptionGroup) as ei:  # noqa: F821
         ferro_io.run(main())
     assert any(isinstance(e, RuntimeError) for e in ei.value.exceptions)
 

@@ -1,6 +1,5 @@
 """Phase 8b: parametrized smoke test for every public asyncio symbol."""
 import asyncio
-import inspect
 
 import pytest
 import ferro_io

@@ -1,7 +1,6 @@
 """Phase 8d: edge cases for the explicit overrides."""
 import time
 
-import pytest
 import ferro_io
 
 
