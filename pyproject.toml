@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "ferro-io"
-version = "0.1.0"
+version = "0.2.0"
 description = "Multi-core async runtime for Python, backed by Tokio. Drop-in asyncio replacement."
 readme = "README.md"
 requires-python = ">=3.9"

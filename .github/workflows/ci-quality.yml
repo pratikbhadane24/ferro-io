@@ -37,6 +37,22 @@ jobs:
       - name: Ruff check
         run: uv run ruff check python/ tests/
 
+  version-parity:
+    name: Version parity (Cargo.toml == pyproject.toml)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check versions match
+        run: |
+          CARGO_VER=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          PY_VER=$(grep '^version' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "Cargo.toml: $CARGO_VER"
+          echo "pyproject.toml: $PY_VER"
+          if [ "$CARGO_VER" != "$PY_VER" ]; then
+            echo "Version mismatch! Update both files to the same version before merging."
+            exit 1
+          fi
+
   python-typecheck:
     name: Python typecheck (mypy)
     runs-on: ubuntu-latest
