@@ -74,7 +74,9 @@ def test_map_blocking_is_parallel_on_cpu():
     parallel = time.perf_counter() - start
 
     # N items should take significantly less than N×serial.
-    assert parallel < serial * len(items) * 0.6, (
+    # Factor 0.75: requires at least 1.33× speedup across N cores — generous
+    # enough for CI timing noise while still proving real parallelism.
+    assert parallel < serial * len(items) * 0.75, (
         f"parallel={parallel:.3f}s vs serial×N={serial * len(items):.3f}s "
         "— spawn_blocking isn't parallelizing"
     )

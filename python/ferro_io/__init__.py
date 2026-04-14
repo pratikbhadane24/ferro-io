@@ -181,7 +181,9 @@ class _SigintGuard:
 async def _with_eager_factory(coro):
     # Must be a coroutine: set_task_factory requires a running loop, so it
     # can't be called from run()'s synchronous entry point.
-    _asyncio.get_running_loop().set_task_factory(_asyncio.eager_task_factory)
+    # eager_task_factory was added in Python 3.12; skip on older versions.
+    if hasattr(_asyncio, "eager_task_factory"):
+        _asyncio.get_running_loop().set_task_factory(_asyncio.eager_task_factory)
     return await coro
 
 
@@ -294,7 +296,9 @@ def sleep(delay: float, result: Any = None):
 
 gather = _asyncio.gather
 wait_for = _asyncio.wait_for
-timeout = _asyncio.timeout
+# asyncio.timeout was added in Python 3.11; fall through to __getattr__ on older versions.
+if hasattr(_asyncio, "timeout"):
+    timeout = _asyncio.timeout
 create_task = _asyncio.create_task
 ensure_future = _asyncio.ensure_future
 shield = _asyncio.shield
