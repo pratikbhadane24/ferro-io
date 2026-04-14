@@ -221,9 +221,7 @@ impl AsyncRuntime {
         let locals = pyo3_async_runtimes::TaskLocals::new(event_loop.clone()).copy_context(py)?;
         let fut = pyo3_async_runtimes::into_future_with_locals(&locals, coro)?;
 
-        let result = pyo3_async_runtimes::tokio::run_until_complete(event_loop.clone(), async move {
-            fut.await
-        });
+        let result = pyo3_async_runtimes::tokio::run_until_complete(event_loop.clone(), fut);
 
         // Clean up the loop we created.
         let _ = event_loop.call_method0("close");

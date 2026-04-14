@@ -1,0 +1,55 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  rust-lint:
+    name: Rust lint (fmt + clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+  python-lint:
+    name: Python lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: uv sync --extra dev
+      - name: Ruff check
+        run: uv run ruff check python/ tests/
+
+  python-typecheck:
+    name: Python typecheck (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: uv sync --extra dev
+      - name: Build extension (needed for stub resolution)
+        run: uv run maturin develop
+      - name: Mypy
+        run: uv run mypy python/ferro_io --ignore-missing-imports

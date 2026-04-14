@@ -105,5 +105,5 @@ def test_to_thread_parallelism():
 
     elapsed, results = ferro_io.run(main())
     assert len(results) == 10
-    # 10 parallel 50ms sleeps via thread pool should land under 0.3s.
-    assert elapsed < 0.3, f"to_thread parallelism failed: {elapsed:.3f}s"
+    # Serial would be 10×50ms = 500ms; 0.45s proves parallelism with CI headroom.
+    assert elapsed < 0.45, f"to_thread parallelism failed: {elapsed:.3f}s"

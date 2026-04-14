@@ -7,8 +7,15 @@ cancellation, and mixed-completion workloads identically to stdlib.
 from __future__ import annotations
 
 import asyncio
+import sys
 
 import pytest
+
+# Skip the entire module at collection time on Python < 3.11.
+# Must come before `from ferro_io import TaskGroup` to avoid an AttributeError
+# at import time (asyncio.TaskGroup doesn't exist before 3.11).
+if sys.version_info < (3, 11):
+    pytest.skip("asyncio.TaskGroup requires Python 3.11+", allow_module_level=True)
 
 import ferro_io
 from ferro_io import TaskGroup
@@ -60,7 +67,7 @@ def test_eager_exception_propagates_as_exception_group():
             tg.create_task(boom())
             tg.create_task(boom())
 
-    with pytest.raises(BaseExceptionGroup) as ei:
+    with pytest.raises(BaseExceptionGroup) as ei:  # noqa: F821
         ferro_io.run(main())
     assert all(isinstance(e, ValueError) for e in ei.value.exceptions)
     assert len(ei.value.exceptions) == 2
@@ -86,7 +93,7 @@ def test_eager_exception_cancels_siblings():
             tg.create_task(slow())
             tg.create_task(boom())
 
-    with pytest.raises(BaseExceptionGroup) as ei:
+    with pytest.raises(BaseExceptionGroup) as ei:  # noqa: F821
         ferro_io.run(main())
     # boom raises, sibling slow tasks must have been cancelled
     assert any(isinstance(e, RuntimeError) for e in ei.value.exceptions)
@@ -109,7 +116,7 @@ def test_mid_flight_exception_aborts_group():
             tg.create_task(slow())
             tg.create_task(boom())
 
-    with pytest.raises(BaseExceptionGroup) as ei:
+    with pytest.raises(BaseExceptionGroup) as ei:  # noqa: F821
         ferro_io.run(main())
     assert any(isinstance(e, RuntimeError) for e in ei.value.exceptions)
 
@@ -153,6 +160,7 @@ def test_task_group_is_asyncio_subclass():
 
 # ---------- eager factory wiring ----------
 
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="eager_task_factory requires Python 3.12+")
 def test_ferro_io_run_enables_eager_factory():
     """Any coroutine run via ferro_io.run() sees the eager factory active."""
     observed = []
@@ -165,6 +173,7 @@ def test_ferro_io_run_enables_eager_factory():
     assert observed[0] is asyncio.eager_task_factory
 
 
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="eager_task_factory requires Python 3.12+")
 def test_runner_enables_eager_factory():
     observed = []
 

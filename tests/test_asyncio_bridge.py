@@ -2,7 +2,6 @@
 import asyncio
 import time
 
-import pytest
 import ferro_io
 
 

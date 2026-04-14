@@ -91,36 +91,37 @@ __all__ = [
 # _tasks, _aborting, _parent_task, _on_task_done) and asyncio.futures
 # .future_add_to_awaited_by. The latter is Python 3.13+; guarded below.
 
-from asyncio import futures as _asyncio_futures
+from asyncio import futures as _asyncio_futures  # noqa: E402
 
 _future_add_to_awaited_by = getattr(_asyncio_futures, "future_add_to_awaited_by", None)
 
 
-class _FastTaskGroup(_asyncio.TaskGroup):
-    def create_task(self, coro, **kwargs):
-        if not self._entered:
-            coro.close()
-            raise RuntimeError(f"TaskGroup {self!r} has not been entered")
-        if self._exiting and not self._tasks:
-            coro.close()
-            raise RuntimeError(f"TaskGroup {self!r} is finished")
-        if self._aborting:
-            coro.close()
-            raise RuntimeError(f"TaskGroup {self!r} is shutting down")
+# _FastTaskGroup requires asyncio.TaskGroup which was added in Python 3.11.
+if hasattr(_asyncio, "TaskGroup"):
+    class _FastTaskGroup(_asyncio.TaskGroup):
+        def create_task(self, coro, **kwargs):
+            if not self._entered:
+                coro.close()
+                raise RuntimeError(f"TaskGroup {self!r} has not been entered")
+            if self._exiting and not self._tasks:
+                coro.close()
+                raise RuntimeError(f"TaskGroup {self!r} is finished")
+            if self._aborting:
+                coro.close()
+                raise RuntimeError(f"TaskGroup {self!r} is shutting down")
 
-        task = self._loop.create_task(coro, **kwargs)
+            task = self._loop.create_task(coro, **kwargs)
 
-        if task.done() and not task.cancelled() and task.exception() is None:
+            if task.done() and not task.cancelled() and task.exception() is None:
+                return task
+
+            if _future_add_to_awaited_by is not None:
+                _future_add_to_awaited_by(task, self._parent_task)
+            self._tasks.add(task)
+            task.add_done_callback(self._on_task_done)
             return task
 
-        if _future_add_to_awaited_by is not None:
-            _future_add_to_awaited_by(task, self._parent_task)
-        self._tasks.add(task)
-        task.add_done_callback(self._on_task_done)
-        return task
-
-
-TaskGroup = _FastTaskGroup
+    TaskGroup = _FastTaskGroup
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +153,7 @@ class _SigintGuard:
     """
 
     def __init__(self) -> None:
-        self._prev = None
+        self._prev: Any = None
         self._installed = False
 
     def __enter__(self) -> _SigintGuard:
@@ -180,7 +181,9 @@ class _SigintGuard:
 async def _with_eager_factory(coro):
     # Must be a coroutine: set_task_factory requires a running loop, so it
     # can't be called from run()'s synchronous entry point.
-    _asyncio.get_running_loop().set_task_factory(_asyncio.eager_task_factory)
+    # eager_task_factory was added in Python 3.12; skip on older versions.
+    if hasattr(_asyncio, "eager_task_factory"):
+        _asyncio.get_running_loop().set_task_factory(_asyncio.eager_task_factory)
     return await coro
 
 
@@ -293,7 +296,9 @@ def sleep(delay: float, result: Any = None):
 
 gather = _asyncio.gather
 wait_for = _asyncio.wait_for
-timeout = _asyncio.timeout
+# asyncio.timeout was added in Python 3.11; fall through to __getattr__ on older versions.
+if hasattr(_asyncio, "timeout"):
+    timeout = _asyncio.timeout
 create_task = _asyncio.create_task
 ensure_future = _asyncio.ensure_future
 shield = _asyncio.shield

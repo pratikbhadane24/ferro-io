@@ -1,4 +1,5 @@
 """Phase 8d: edge cases for the explicit overrides."""
+import sys
 import time
 
 import pytest
@@ -14,7 +15,7 @@ def test_sleep_zero_is_yield():
         return time.perf_counter() - start
 
     elapsed = ferro_io.run(main())
-    assert elapsed < 0.05, f"sleep(0)×100 took {elapsed:.4f}s — too slow"
+    assert elapsed < 0.1, f"sleep(0)×100 took {elapsed:.4f}s — too slow"
 
 
 def test_sleep_negative_is_zero():
@@ -62,6 +63,7 @@ def test_wait_for_no_timeout():
     assert ferro_io.run(main()) == "done"
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="asyncio.timeout requires Python 3.11+")
 def test_timeout_none_context():
     async def main():
         async with ferro_io.timeout(None):

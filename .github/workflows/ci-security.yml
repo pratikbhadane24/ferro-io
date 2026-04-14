@@ -1,0 +1,39 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Every Monday at 06:00 UTC — catches new CVEs without a code change
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  rust-audit:
+    name: Rust audit (cargo-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Audit Rust dependencies
+        run: cargo audit
+
+  python-audit:
+    name: Python audit (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Export production deps
+        run: uv export --no-dev --format requirements-txt > /tmp/requirements.txt
+      - name: Audit Python dependencies
+        run: uvx pip-audit --requirement /tmp/requirements.txt
