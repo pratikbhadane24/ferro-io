@@ -1,6 +1,8 @@
 """Phase 8d: edge cases for the explicit overrides."""
+import sys
 import time
 
+import pytest
 import ferro_io
 
 
@@ -61,6 +63,7 @@ def test_wait_for_no_timeout():
     assert ferro_io.run(main()) == "done"
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="asyncio.timeout requires Python 3.11+")
 def test_timeout_none_context():
     async def main():
         async with ferro_io.timeout(None):
