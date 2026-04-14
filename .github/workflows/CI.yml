@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install pytest
+        run: pip install pytest pytest-asyncio maturin
+      - name: Build and install
+        run: maturin develop --release
+      - name: Run tests
+        run: pytest tests/ -v --ignore=tests/test_heavyweights.py
+
+  integration:
+    name: Integration (heavyweight libs)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ferro_io
+          POSTGRES_PASSWORD: ferro_io
+          POSTGRES_DB: ferro_io
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U ferro_io -d ferro_io"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install pytest + heavyweight deps
+        run: |
+          pip install pytest maturin
+          pip install asyncpg 'sqlalchemy[asyncio]' greenlet fastapi starlette anyio httpx
+      - name: Build and install
+        run: maturin develop --release
+      - name: Run heavyweight integration tests
+        env:
+          FERRO_IO_INTEGRATION: "1"
+          FERRO_IO_PG_DSN: postgresql://ferro_io:ferro_io@localhost:55432/ferro_io
+        run: pytest tests/test_heavyweights.py -v
+
+  build-wheels:
+    name: Build wheels (${{ matrix.platform.os }} / ${{ matrix.platform.target }})
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { os: ubuntu-latest,  target: x86_64,  manylinux: auto }
+          - { os: ubuntu-latest,  target: aarch64, manylinux: auto }
+          - { os: macos-latest,   target: x86_64,  manylinux: auto }
+          - { os: macos-latest,   target: aarch64, manylinux: auto }
+          - { os: windows-latest, target: x64,     manylinux: auto }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
+          manylinux: ${{ matrix.platform.manylinux }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.platform.os }}-${{ matrix.platform.target }}
+          path: dist
+
+  publish:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, build-wheels]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish
+        uses: PyO3/maturin-action@v1
+        with:
+          command: upload
+          args: --non-interactive --skip-existing dist/*

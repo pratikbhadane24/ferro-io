@@ -1,0 +1,11 @@
+target/
+.venv/
+__pycache__/
+*.pyc
+*.so
+*.dylib
+*.dll
+dist/
+*.egg-info/
+.pytest_cache/
+.maturin/

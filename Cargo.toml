@@ -1,0 +1,21 @@
+[package]
+name = "ferro-io"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ferro_io"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.28", features = ["extension-module", "abi3-py39"] }
+pyo3-async-runtimes = { version = "0.28", features = ["tokio-runtime"] }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+thiserror = "1"
+num_cpus = "1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 3
