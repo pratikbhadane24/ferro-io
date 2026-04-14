@@ -54,14 +54,19 @@ def test_map_blocking_cpu_work():
 
 def test_map_blocking_is_parallel_on_cpu():
     """spawn_blocking should saturate worker threads for CPU work."""
+    import pytest
     if os.cpu_count() is None or os.cpu_count() < 2:
-        return  # can't prove parallelism on single-core boxes
+        pytest.skip("can't prove parallelism on single-core boxes")
     rt = ferro_io.AsyncRuntime()
-    # One heavy item to calibrate.
-    iters = 2_000_000
+    # One heavy item to calibrate. Use enough iterations that serial >= ~50ms
+    # so scheduling overhead doesn't swamp the parallelism signal on CI.
+    iters = 10_000_000
     start = time.perf_counter()
     rt.map_blocking([1], iterations=iters)
     serial = time.perf_counter() - start
+
+    if serial < 0.02:
+        pytest.skip(f"serial={serial:.3f}s too fast to measure parallelism reliably")
 
     items = list(range(os.cpu_count()))
     start = time.perf_counter()
