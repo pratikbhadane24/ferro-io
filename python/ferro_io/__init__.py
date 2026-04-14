@@ -89,9 +89,11 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # Reaches into CPython-private TaskGroup internals (_entered, _exiting,
 # _tasks, _aborting, _parent_task, _on_task_done) and asyncio.futures
-# .future_add_to_awaited_by. Pinned to CPython 3.11–3.13; re-audit on bump.
+# .future_add_to_awaited_by. The latter is Python 3.13+; guarded below.
 
 from asyncio import futures as _asyncio_futures
+
+_future_add_to_awaited_by = getattr(_asyncio_futures, "future_add_to_awaited_by", None)
 
 
 class _FastTaskGroup(_asyncio.TaskGroup):
@@ -111,7 +113,8 @@ class _FastTaskGroup(_asyncio.TaskGroup):
         if task.done() and not task.cancelled() and task.exception() is None:
             return task
 
-        _asyncio_futures.future_add_to_awaited_by(task, self._parent_task)
+        if _future_add_to_awaited_by is not None:
+            _future_add_to_awaited_by(task, self._parent_task)
         self._tasks.add(task)
         task.add_done_callback(self._on_task_done)
         return task
