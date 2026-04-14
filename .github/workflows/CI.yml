@@ -20,17 +20,17 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install pytest
-        run: pip install pytest pytest-asyncio maturin
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: uv sync --extra dev
       - name: Build and install
-        run: maturin develop --release
+        run: uv run maturin develop --release
       - name: Run tests
-        run: pytest tests/ -v --ignore=tests/test_heavyweights.py
+        run: uv run pytest tests/ -v --ignore=tests/test_heavyweights.py
 
   integration:
     name: Integration (heavyweight libs)
@@ -51,22 +51,20 @@ jobs:
           --health-retries 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install pytest + heavyweight deps
-        run: |
-          pip install pytest maturin
-          pip install asyncpg 'sqlalchemy[asyncio]' greenlet fastapi starlette anyio httpx
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: uv sync --extra integration
       - name: Build and install
-        run: maturin develop --release
+        run: uv run maturin develop --release
       - name: Run heavyweight integration tests
         env:
           FERRO_IO_INTEGRATION: "1"
           FERRO_IO_PG_DSN: postgresql://ferro_io:ferro_io@localhost:55432/ferro_io
-        run: pytest tests/test_heavyweights.py -v
+        run: uv run pytest tests/test_heavyweights.py -v
 
   build-wheels:
     name: Build wheels (${{ matrix.platform.os }} / ${{ matrix.platform.target }})
@@ -82,7 +80,7 @@ jobs:
           - { os: windows-latest, target: x64,     manylinux: auto }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
       - name: Build wheel

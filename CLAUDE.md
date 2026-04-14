@@ -6,20 +6,21 @@ Python `ferro_io` drop-in shim for asyncio.
 ## Build loop
 
 ```bash
-source .venv/bin/activate
+uv sync --extra dev                                            # create/update .venv
 cargo check                                                    # fast feedback
-maturin develop --release                                      # rebuild the extension
-pytest tests/ -q --ignore=tests/test_heavyweights.py           # fast unit loop
-python benchmarks/bench.py                                     # spot-check perf
+uv run maturin develop --release                               # rebuild the extension
+uv run pytest tests/ -q --ignore=tests/test_heavyweights.py   # fast unit loop
+uv run python benchmarks/bench.py                              # spot-check perf
 ```
 
 For the heavyweight integration loop (asyncpg / SQLAlchemy / FastAPI against a
 real Postgres) and the uvloop benchmark matrix:
 
 ```bash
+uv sync --extra integration
 docker compose -f tests/docker-compose.yml up -d
-FERRO_IO_INTEGRATION=1 pytest tests/test_heavyweights.py -v
-python benchmarks/bench_matrix.py          # writes benchmarks/RESULTS.md
+FERRO_IO_INTEGRATION=1 uv run pytest tests/test_heavyweights.py -v
+uv run python benchmarks/bench_matrix.py   # writes benchmarks/RESULTS.md
 docker compose -f tests/docker-compose.yml down
 ```
 

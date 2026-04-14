@@ -14,6 +14,24 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "maturin>=1.7,<2",
+]
+integration = [
+    "pytest",
+    "maturin>=1.7,<2",
+    "asyncpg",
+    "sqlalchemy[asyncio]",
+    "greenlet",
+    "fastapi",
+    "starlette",
+    "anyio",
+    "httpx",
+]
+
 [tool.maturin]
 module-name = "ferro_io._ferro_io"
 python-source = "python"
