@@ -1,5 +1,34 @@
 # ferro_io — agent rules
 
+> ## Project status: DISCONTINUED (April 2026)
+>
+> This project is no longer under active development. The benchmarks that
+> motivated it (`map_blocking` Rust-vs-Python arithmetic) do not translate to
+> real-world Python workloads; empirical testing against bcrypt, Pillow,
+> ReportLab, and WeasyPrint showed no measurable win over stdlib's default
+> executor. The GIL is a CPython interpreter invariant, not a scheduler
+> problem. Moving the scheduler to Rust does not remove it.
+>
+> See the **Findings** section of `README.md` for the full write-up.
+>
+> **Rules of engagement for future agent sessions:**
+>
+> - Do **not** add new features, primitives, or performance work to this
+>   repository unless the user explicitly says they are reviving the project.
+> - If the user asks "why is this discontinued?", point them at `README.md`.
+> - If the user asks to revive it, the only architecturally honest path is to
+>   target PEP 703 free-threaded Python (`python3.13t`, `python3.14t`) where
+>   the GIL is actually removable. Anything short of that repeats the
+>   mistake.
+> - Existing code is a reasonable reference for PyO3 0.28 +
+>   pyo3-async-runtimes 0.28 + Tokio bridging. Preserve correctness if asked
+>   to read or explain it. Don't rewrite it for its own sake.
+>
+> The sections below describe how the project worked during its active
+> period and are kept for reference.
+
+---
+
 Mixed Rust/Python project: PyO3 + Tokio bindings (`ferro_io._ferro_io`) plus a
 Python `ferro_io` drop-in shim for asyncio.
 

@@ -9,6 +9,7 @@ description = "Multi-core async runtime for Python, backed by Tokio. Drop-in asy
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
+    "Development Status :: 7 - Inactive",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "License :: OSI Approved :: MIT License",
